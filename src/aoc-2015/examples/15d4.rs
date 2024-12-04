@@ -1,5 +1,3 @@
-use core::num;
-
 const INPUT: &str = "yzbqklnj";
 
 fn main() {
