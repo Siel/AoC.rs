@@ -53,88 +53,102 @@ impl Calculator {
 
     fn parse_char(&mut self, c: u8) {
         match self.state {
-            State::ParsingOp => match (self.last_char, c) {
-                (0, b'm') | (b'm', b'u') | (b'u', b'l') | (0, b'd') | (b'd', b'o') => {
-                    self.last_char = c;
+            State::ParsingOp => self.handle_parsing_op(c),
+            State::ParsingLhs => self.handle_parsing_lhs(c),
+            State::ParsingRhs => self.handle_parsing_rhs(c),
+            State::ParsingOpDo => self.handle_parsing_op_do(c),
+            State::ParsingOpDoNot => self.handle_parsing_op_do_not(c),
+        }
+    }
+
+    fn handle_parsing_op(&mut self, c: u8) {
+        match (self.last_char, c) {
+            (0, b'm') | (b'm', b'u') | (b'u', b'l') | (0, b'd') | (b'd', b'o') => {
+                self.last_char = c;
+            }
+            (b'l', b'(') => {
+                self.last_char = c;
+                self.state = State::ParsingLhs;
+            }
+            (b'o', b'(') if self.branching => {
+                self.last_char = c;
+                self.state = State::ParsingOpDo;
+            }
+            (b'o', b'n') if self.branching => {
+                self.last_char = c;
+                self.state = State::ParsingOpDoNot;
+            }
+            _ => {
+                self.reset();
+            }
+        }
+    }
+
+    fn handle_parsing_lhs(&mut self, c: u8) {
+        match c {
+            b'0'..=b'9' => {
+                self.parsing.push(c);
+            }
+            b',' => {
+                self.lhs = String::from_utf8(self.parsing.clone())
+                    .unwrap()
+                    .parse()
+                    .unwrap();
+                self.parsing.clear();
+                self.state = State::ParsingRhs;
+            }
+            _ => {
+                self.reset();
+            }
+        }
+    }
+
+    fn handle_parsing_rhs(&mut self, c: u8) {
+        match c {
+            b'0'..=b'9' => {
+                self.parsing.push(c);
+            }
+            b')' => {
+                self.rhs = String::from_utf8(self.parsing.clone())
+                    .unwrap()
+                    .parse()
+                    .unwrap();
+                self.parsing.clear();
+                self.state = State::ParsingOp;
+                if self.enabled || !self.branching {
+                    self.acc += self.lhs * self.rhs;
                 }
-                (b'l', b'(') => {
-                    self.last_char = c;
-                    self.state = State::ParsingLhs;
-                }
-                (b'o', b'(') => {
-                    if self.branching {
-                        self.last_char = c;
-                        self.state = State::ParsingOpDo;
-                    } else {
-                        self.reset();
-                    }
-                }
-                (b'o', b'n') => {
-                    if self.branching {
-                        self.last_char = c;
-                        self.state = State::ParsingOpDoNot;
-                    } else {
-                        self.reset();
-                    }
-                }
-                _ => {
-                    self.reset();
-                }
-            },
-            State::ParsingLhs => match c {
-                b'0'..=b'9' => {
-                    self.parsing.push(c);
-                }
-                b',' => {
-                    self.lhs = String::from_utf8(self.parsing.clone())
-                        .unwrap()
-                        .parse()
-                        .unwrap();
-                    self.parsing.clear();
-                    self.state = State::ParsingRhs;
-                }
-                _ => {
-                    self.reset();
-                }
-            },
-            State::ParsingRhs => match c {
-                b'0'..=b'9' => {
-                    self.parsing.push(c);
-                }
-                b')' => {
-                    self.rhs = String::from_utf8(self.parsing.clone())
-                        .unwrap()
-                        .parse()
-                        .unwrap();
-                    self.parsing.clear();
-                    self.state = State::ParsingOp;
-                    if self.enabled || !self.branching {
-                        self.acc += self.lhs * self.rhs;
-                    }
-                    self.reset();
-                }
-                _ => {
-                    self.reset();
-                }
-            },
-            State::ParsingOpDo => match (self.last_char, c) {
-                (b'(', b')') => {
-                    self.enabled = true;
-                    self.reset();
-                }
-                _ => {
-                    self.reset();
-                }
-            },
-            State::ParsingOpDoNot => match (self.last_char, c) {
-                (b'n', b'\'') | (b'\'', b't') | (b't', b'(') | (b'(', b')') => {
-                    self.enabled = false;
-                    self.reset();
-                }
-                _ => {
-                    self.reset();
-                }
-            },
+                self.reset();
+            }
+            _ => {
+                self.reset();
+            }
+        }
+    }
+
+    fn handle_parsing_op_do(&mut self, c: u8) {
+        // When parsing do() commands, the last character received is '('
+        match (self.last_char, c) {
+            (b'(', b')') => {
+                self.enabled = true;
+                self.reset();
+            }
+            _ => {
+                self.reset();
+            }
+        }
+    }
+
+    fn handle_parsing_op_do_not(&mut self, c: u8) {
+        // When parsing do_not() commands, the last character received is 'n'
+        match (self.last_char, c) {
+            (b'n', b'\'') | (b'\'', b't') | (b't', b'(') | (b'(', b')') => {
+                self.enabled = false;
+                self.reset();
+            }
+            _ => {
+                self.reset();
+            }
         }
     }
 
