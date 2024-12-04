@@ -4,7 +4,9 @@ fn main() {
     let raw_input = fs::read("inputs/24d2.txt").expect("Something went wrong reading the file");
     let levels = Levels::from_raw(raw_input);
     let safe_levels = levels.0.iter().filter(|l| l.is_safe()).count();
+    let dampened_safe_levels = levels.0.iter().filter(|l| l.dampened_safe()).count();
     println!("Safe levels: {}", safe_levels);
+    println!("Dampened safe levels: {}", dampened_safe_levels);
 }
 
 #[derive(Debug)]
@@ -58,6 +60,17 @@ impl Level {
         }
 
         true
+    }
+
+    fn dampened_safe(&self) -> bool {
+        //Not the most efficient way to do this, but it works
+        let mut levels = Vec::new();
+        for i in 0..self.0.len() {
+            let mut new_level = self.0.clone();
+            new_level.remove(i);
+            levels.push(Level(new_level));
+        }
+        levels.iter().any(|l| l.is_safe())
     }
 
     fn tendency(&self) -> Option<Tendency> {
