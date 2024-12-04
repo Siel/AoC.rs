@@ -2,15 +2,20 @@ use std::fs;
 
 fn main() {
     let raw_input = fs::read("inputs/24d3.txt").expect("Something went wrong reading the file");
-    let mut calculator = Calculator::new();
-    let result = calculator.parse(raw_input);
-    println!("Result: {}", result);
+    let mut c1 = Calculator::new(false);
+    let r1 = c1.parse(&raw_input);
+    println!("Result1: {}", r1);
+    let mut c2 = Calculator::new(true);
+    let r2 = c2.parse(&raw_input);
+    println!("Result2: {}", r2);
 }
 
 enum State {
     ParsingLhs,
     ParsingRhs,
     ParsingOp,
+    ParsingOpDo,
+    ParsingOpDoNot,
 }
 
 struct Calculator {
@@ -20,10 +25,12 @@ struct Calculator {
     rhs: u64,
     acc: u64,
     state: State,
+    branching: bool,
+    enabled: bool,
 }
 
 impl Calculator {
-    fn new() -> Self {
+    fn new(branching: bool) -> Self {
         Self {
             parsing: Vec::new(),
             last_char: 0,
@@ -31,6 +38,8 @@ impl Calculator {
             rhs: 0,
             acc: 0,
             state: State::ParsingOp,
+            branching,
+            enabled: true,
         }
     }
 
@@ -45,12 +54,28 @@ impl Calculator {
     fn parse_char(&mut self, c: u8) {
         match self.state {
             State::ParsingOp => match (self.last_char, c) {
-                (0, b'm') | (b'm', b'u') | (b'u', b'l') => {
+                (0, b'm') | (b'm', b'u') | (b'u', b'l') | (0, b'd') | (b'd', b'o') => {
                     self.last_char = c;
                 }
                 (b'l', b'(') => {
                     self.last_char = c;
                     self.state = State::ParsingLhs;
+                }
+                (b'o', b'(') => {
+                    if self.branching {
+                        self.last_char = c;
+                        self.state = State::ParsingOpDo;
+                    } else {
+                        self.reset();
+                    }
+                }
+                (b'o', b'n') => {
+                    if self.branching {
+                        self.last_char = c;
+                        self.state = State::ParsingOpDoNot;
+                    } else {
+                        self.reset();
+                    }
                 }
                 _ => {
                     self.reset();
@@ -83,7 +108,27 @@ impl Calculator {
                         .unwrap();
                     self.parsing.clear();
                     self.state = State::ParsingOp;
-                    self.acc += self.lhs * self.rhs;
+                    if self.enabled || !self.branching {
+                        self.acc += self.lhs * self.rhs;
+                    }
+                    self.reset();
+                }
+                _ => {
+                    self.reset();
+                }
+            },
+            State::ParsingOpDo => match (self.last_char, c) {
+                (b'(', b')') => {
+                    self.enabled = true;
+                    self.reset();
+                }
+                _ => {
+                    self.reset();
+                }
+            },
+            State::ParsingOpDoNot => match (self.last_char, c) {
+                (b'n', b'\'') | (b'\'', b't') | (b't', b'(') | (b'(', b')') => {
+                    self.enabled = false;
                     self.reset();
                 }
                 _ => {
@@ -93,7 +138,7 @@ impl Calculator {
         }
     }
 
-    fn parse(&mut self, raw: Vec<u8>) -> u64 {
+    fn parse(&mut self, raw: &Vec<u8>) -> u64 {
         raw.iter().for_each(|&c| self.parse_char(c));
         self.acc
     }
@@ -106,8 +151,8 @@ mod tests {
     #[test]
     fn test() {
         let input = b"xmul(2,4)%&mul[3,7]!@^do_not_mul(5,5)+mul(32,64]then(mul(11,8)mul(8,5))";
-        let mut calculator = Calculator::new();
-        let result = calculator.parse(input.to_vec());
+        let mut calculator = Calculator::new(false);
+        let result = calculator.parse(&input.to_vec());
         assert_eq!(result, 161);
     }
 }

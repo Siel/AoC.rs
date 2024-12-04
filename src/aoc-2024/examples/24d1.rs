@@ -43,13 +43,3 @@ fn parse_line(raw_line: &[u8]) -> (u32, u32) {
 fn count_matches(list: &Vec<u32>, element: u32) -> usize {
     list.iter().filter(|&&x| x == element).count()
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test() {
-        assert_eq!(2 + 2, 4);
-    }
-}
