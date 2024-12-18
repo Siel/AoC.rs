@@ -177,8 +177,8 @@ impl Node {
         let y0 = self.0 as i32;
         let x0 = self.1 as i32;
         let opposite = dir.opposite();
-        let (mut bx, mut by) = (x0.clone(), y0.clone());
-        let (mut fx, mut fy) = (x0.clone(), y0.clone());
+        let (mut bx, mut by) = (x0, y0);
+        let (mut fx, mut fy) = (x0, y0);
         opposite.move_dir(&mut bx, &mut by);
         dir.move_dir(&mut fx, &mut fy);
 
@@ -205,7 +205,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test1() {
+    fn test() {
         let input = b"MMMSXXMASM
 MSAMXMSMSA
 AMXSXMAAMM
@@ -225,21 +225,6 @@ MXMXAXMASX";
             .collect::<Vec<usize>>();
         let result = hits.iter().sum::<usize>();
         assert_eq!(result, 18);
-    }
-
-    #[test]
-    fn test2() {
-        let input = b".M.S......
-..A..MSMS.
-.M.S.MAA..
-..A.ASMSM.
-.M.S.M....
-..........
-S.S.S.S.S.
-.A.A.A.A..
-M.M.M.M.M.
-..........";
-        let matrix = Matrix::init(input.to_vec());
         let nodes = matrix.find_nodes(b'A');
         println!("{:?}", nodes);
         let hits = nodes
