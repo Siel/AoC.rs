@@ -47,6 +47,7 @@ impl<'a> Rules<'a> {
             if self.check(update) {
                 return;
             }
+            println!("Tried enforcing rules, {} tries left", max_tries);
             max_tries -= 1;
         }
         panic!("Could not enforce rules");
