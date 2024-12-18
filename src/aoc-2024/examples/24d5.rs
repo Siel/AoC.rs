@@ -6,9 +6,15 @@ fn main() {
     let (rules, pages) = raw_input.split_once("\n\n").unwrap();
     let rules = Rules::from_raw(rules);
     let mut manual = Manual::from_raw(pages);
+    let mut manual2 = manual.clone();
     manual.filter_updates(&rules);
     let result = manual.sum_middle();
-    println!("Result: {}", result);
+    println!("Result1: {}", result);
+
+    manual2.keep_bad_updates(&rules);
+    manual2.enforce_rules(&rules);
+    let result = manual2.sum_middle();
+    println!("Result2: {}", result);
 }
 
 struct Rules<'a> {
@@ -33,6 +39,18 @@ impl<'a> Rules<'a> {
     fn check(&self, update: &Update) -> bool {
         self.rules.iter().all(|rule| rule.check(update))
     }
+
+    fn enforce(&self, update: &mut Update) {
+        let mut max_tries = update.pages.len();
+        while max_tries > 0 {
+            self.rules.iter().for_each(|rule| rule.enforce(update));
+            if self.check(update) {
+                return;
+            }
+            max_tries -= 1;
+        }
+        panic!("Could not enforce rules");
+    }
 }
 
 struct Rule<'a> {
@@ -51,14 +69,25 @@ impl Rule<'_> {
         let after_idx = update.pages.iter().position(|&x| x == self.after).unwrap();
         before_idx < after_idx
     }
+
+    fn enforce(&self, update: &mut Update) {
+        if self.check(update) {
+            return;
+        }
+        let before_idx = update.pages.iter().position(|&x| x == self.before).unwrap();
+        let after_idx = update.pages.iter().position(|&x| x == self.after).unwrap();
+        update.pages.swap(before_idx, after_idx);
+    }
 }
 
+#[derive(Clone)]
 struct Update<'a> {
     pages: Vec<&'a str>,
 }
 
 impl<'a> Update<'a> {}
 
+#[derive(Clone)]
 struct Manual<'a> {
     updates: Vec<Update<'a>>,
 }
@@ -77,6 +106,16 @@ impl<'a> Manual<'a> {
 
     fn filter_updates(&mut self, rules: &Rules) {
         self.updates.retain(|update| rules.check(update));
+    }
+
+    fn keep_bad_updates(&mut self, rules: &Rules) {
+        self.updates.retain(|update| !rules.check(update));
+    }
+
+    fn enforce_rules(&mut self, rules: &Rules) {
+        self.updates
+            .iter_mut()
+            .for_each(|update| rules.enforce(update));
     }
 
     fn sum_middle(&self) -> usize {
